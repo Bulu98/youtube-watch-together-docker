@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative YouTube Watch Party</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://www.youtube.com/iframe_api"></script>
+</head>
+<body>
+    <div id="name-input-area">
+        <input type="text" id="name-input" placeholder="Enter your name">
+        <button id="set-name-button">Set Name</button>
+    </div>
+
+    <div id="main-container">
+        <div id="video-player-container">
+            <div id="player"></div> <!-- Target for YouTube Player -->
+        </div>
+        <div id="right-panel">
+            <div id="user-list">
+                <h3>Users</h3>
+                <!-- User names will be listed here -->
+            </div>
+            <div id="video-queue">
+                <h3>Video Queue</h3>
+                <!-- Dynamically populated queue items will go here -->
+                <!-- Example of a queue item structure (will be created by JS)
+                <div class="queue-item" data-video-id="VIDEO_ID_HERE">
+                    <img src="https://via.placeholder.com/80x45.png?text=Thumb" alt="Video Thumbnail" class="queue-item-thumbnail">
+                    <div class="queue-item-details">
+                        <span class="queue-item-title">Video Title Placeholder</span>
+                    </div>
+                    <div class="queue-item-actions">
+                        <button class="queue-action-btn move-up-btn">↑</button>
+                        <button class="queue-action-btn move-down-btn">↓</button>
+                        <button class="queue-action-btn remove-btn">X</button>
+                    </div>
+                </div>
+                -->
+            </div>
+            <div id="add-video-area">
+                <input type="text" id="video-url-input" placeholder="Enter YouTube Video URL">
+                <button id="add-to-queue-button">Add to Queue</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
