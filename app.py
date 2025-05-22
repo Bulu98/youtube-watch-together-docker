@@ -32,6 +32,7 @@ def handle_connect():
     
     emit('assign_default_name', {'name': default_name}, room=session_id)
     emit('update_user_list', connected_users, broadcast=True)
+    print(f"DEBUG: Emitting 'update_queue' to new user {session_id}. Queue length: {len(video_queue)}")
     emit('update_queue', video_queue, room=session_id) # Send current queue to new user
     
     # If there's a video supposed to be playing, tell the new user to play it
@@ -39,6 +40,7 @@ def handle_connect():
         current_video = video_queue[current_video_index]
         # When a new user connects, if a video is playing, send it with time 0 (or last known time)
         # For simplicity, sending with time 0. More complex state sync can be added.
+        print(f"DEBUG: New user {session_id} connected. Emitting 'play_video_at_time' for video {current_video['id']} at time 0 (or last known).")
         emit('play_video_at_time', {'videoId': current_video['id'], 'time': 0}, room=session_id)
 
 
@@ -55,6 +57,7 @@ def handle_set_name(data):
                 for video_item in video_queue:
                     if video_item['added_by_id'] == session_id:
                         video_item['added_by_name'] = new_name
+                print(f"DEBUG: Emitting 'update_queue' from set_name due to name change in queue. Queue length: {len(video_queue)}")
                 emit('update_queue', video_queue, broadcast=True) # Update queue if names changed
                 break
         emit('update_user_list', connected_users, broadcast=True)
@@ -88,6 +91,7 @@ def handle_add_video(data):
     }
     video_queue.append(video_obj)
     print(f"Video added to queue: {video_obj} by {user_name}")
+    print(f"DEBUG: Emitting 'update_queue' from add_video. Queue length: {len(video_queue)}")
     emit('update_queue', video_queue, broadcast=True)
 
     if len(video_queue) == 1 and current_video_index == -1: # If it's the first video and nothing is playing
@@ -114,6 +118,7 @@ def handle_remove_video(data):
     if removed_video_index != -1:
         removed_video = video_queue.pop(removed_video_index)
         print(f"Video removed: {removed_video['id']}")
+        print(f"DEBUG: Emitting 'update_queue' from remove_video. Queue length: {len(video_queue)}")
         emit('update_queue', video_queue, broadcast=True)
 
         if removed_video_index == current_video_index:
@@ -166,7 +171,8 @@ def handle_reorder_video(data):
              current_video_index +=1
         elif current_video_index == new_idx and current_idx < new_idx : # Target position was current playing, item moved down to it
              current_video_index -=1
-
+        
+        print(f"DEBUG: Emitting 'update_queue' from reorder_video. Queue length: {len(video_queue)}")
         emit('update_queue', video_queue, broadcast=True)
 
 
@@ -182,6 +188,7 @@ def handle_video_ended():
         if current_video_index < len(video_queue):
             next_video = video_queue[current_video_index]
             print(f"Playing next video: {next_video['id']}")
+            print(f"DEBUG: Video ended. Broadcasting 'play_video' for next video: {next_video['id']}.")
             emit('play_video', {'videoId': next_video['id']}, broadcast=True)
         else:
             current_video_index = -1 # Reached end of queue
@@ -201,14 +208,16 @@ def handle_sync_play(data):
     if 0 <= current_video_index < len(video_queue):
         video_id = video_queue[current_video_index]['id']
         time = data.get('time', 0)
-        print(f"Sync play: {video_id} at time {time}")
+        print(f"Sync play: {video_id} at time {time}") # Original log
+        print(f"DEBUG: Received 'sync_play' from {request.sid}. Broadcasting 'play_video_at_time' for video {video_id} at time {time}.")
         emit('play_video_at_time', {'videoId': video_id, 'time': time}, broadcast=True, include_self=False)
 
 @socketio.on('sync_pause')
 def handle_sync_pause():
     if 0 <= current_video_index < len(video_queue):
         video_id = video_queue[current_video_index]['id'] # For logging or context if needed
-        print(f"Sync pause: {video_id}")
+        print(f"Sync pause: {video_id}") # Original log
+        print(f"DEBUG: Received 'sync_pause' from {request.sid}. Broadcasting 'pause_video' for video {video_id}.")
         emit('pause_video', broadcast=True, include_self=False)
 
 

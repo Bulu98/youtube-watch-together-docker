@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const name = nameInput.value.trim();
         if (name) {
             socket.emit('set_name', { name: name });
+            localStorage.setItem('userName', name); // Store name
         } else {
             alert('Please enter a name.');
         }
@@ -40,6 +41,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('connect', () => {
         console.log('Connected to server with ID:', socket.id);
+        const savedName = localStorage.getItem('userName');
+        if (savedName) {
+            console.log('Found saved name in localStorage:', savedName);
+            // No need to set nameInput.value here, as 'assign_default_name' or subsequent 'update_user_list' will handle it.
+            socket.emit('set_name', { name: savedName });
+        }
     });
 
     socket.on('disconnect', () => {
@@ -116,12 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (event.data == YT.PlayerState.PLAYING) {
             const currentTime = player.getCurrentTime();
-            console.log("Player is PLAYING, emitting 'sync_play' at time:", currentTime);
+            console.log("Player is PLAYING, emitting 'sync_play' at time:", currentTime); // Original log
+            console.log("DEBUG: Player state PLAYING (user action or natural play). Emitting 'sync_play'. Current time:", currentTime);
             socket.emit('sync_play', { time: currentTime });
             lastKnownTime = currentTime;
             lastEmittedState = YT.PlayerState.PLAYING;
         } else if (event.data == YT.PlayerState.PAUSED) {
-            console.log("Player is PAUSED, emitting 'sync_pause'");
+            console.log("Player is PAUSED, emitting 'sync_pause'"); // Original log
+            console.log("DEBUG: Player state PAUSED (user action). Emitting 'sync_pause'.");
             socket.emit('sync_pause');
             lastEmittedState = YT.PlayerState.PAUSED;
         } else if (event.data == YT.PlayerState.ENDED) {
@@ -139,30 +148,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Server-driven playback events
     socket.on('play_video_at_time', function(data) {
-        console.log(`Received 'play_video_at_time': Video ID ${data.videoId}, Time: ${data.time}`);
+        console.log("DEBUG: Received 'play_video_at_time' from server. Data:", data);
         const currentLoadedVideoId = player && typeof player.getVideoData === 'function' && player.getVideoData().video_id ? player.getVideoData().video_id : null;
         
         processingRemoteState = true; // Set flag before making changes
 
         if (player && typeof player.loadVideoById === 'function') {
             if (currentLoadedVideoId !== data.videoId) {
-                console.log(`Loading new video: ${data.videoId} at time ${data.time}`);
+                console.log("DEBUG: 'play_video_at_time' - Loading new video:", data.videoId, "at time:", data.time);
                 player.loadVideoById(data.videoId, data.time);
             } else {
-                console.log(`Seeking current video to: ${data.time}`);
+                console.log("DEBUG: 'play_video_at_time' - Seeking/playing current video to:", data.time);
                 player.seekTo(data.time, true); // true allows seek ahead
                 player.playVideo(); // Ensure it plays after seek
             }
             lastKnownTime = data.time;
         } else {
-            console.log(`Player not ready. Queuing video ID ${data.videoId} at time ${data.time}`);
             videoIdToLoad = { id: data.videoId, time: data.time }; // Store with time
+            console.log("DEBUG: 'play_video_at_time' - Player not ready. Queuing videoIdToLoad:", videoIdToLoad);
         }
         // processingRemoteState will be reset by onPlayerStateChange when player settles
     });
 
     socket.on('pause_video', function() {
-        console.log("Received 'pause_video' from server.");
+        console.log("DEBUG: Received 'pause_video' from server.");
         if (player && typeof player.pauseVideo === 'function') {
             processingRemoteState = true; // Set flag before making changes
             player.pauseVideo();
@@ -173,8 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // This handler is for when the server decides a *new* video from the queue should play (e.g., first video, or next after 'ended')
     // It's distinct from 'play_video_at_time' which is for syncing an *already playing* video.
     socket.on('play_video', (data) => {
+        console.log("DEBUG: Received 'play_video' (new video from queue) from server. Data:", data);
         const videoId = data.videoId;
-        console.log(`Received 'play_video' (new video from queue) from server. Loading video: ${videoId}`);
+        // console.log(`Received 'play_video' (new video from queue) from server. Loading video: ${videoId}`); // Original log replaced by DEBUG
         
         if (player && typeof player.loadVideoById === 'function') {
             processingRemoteState = true; // Mark that this change is server-initiated
@@ -182,8 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
             player.playVideo(); 
             lastKnownTime = 0; // Reset time for a new video
         } else {
-            console.log(`Player not ready. Queuing new video ID to load: ${videoId}`);
             videoIdToLoad = {id: videoId, time: 0 }; // Assume start from 0 for a new video
+            console.log("DEBUG: 'play_video' - Player not ready. Queuing videoIdToLoad:", videoIdToLoad);
         }
         // processingRemoteState will be reset by onPlayerStateChange
     });
@@ -196,8 +206,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     socket.on('update_queue', (queueArray) => {
-        console.log("Received 'update_queue'", queueArray);
+        console.log("DEBUG: Received 'update_queue' event from server.");
+        console.log("DEBUG: Queue data received:", queueArray);
+        if (!Array.isArray(queueArray)) {
+            console.error("DEBUG: Received queue data is not an array!", queueArray);
+            // Potentially try to recover or show an error, or just return
+            return; 
+        }
+        console.log("DEBUG: Calling renderQueue with received data.");
         renderQueue(queueArray);
+        console.log("DEBUG: renderQueue finished.");
     });
 
     function renderQueue(queueArray) {
